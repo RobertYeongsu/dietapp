@@ -16,7 +16,7 @@
 <style>
   :root{
     --bg:#FDFBF7; --card:#FFFFFF; --line:#ECE7D9; --ink:#2B2B2B; --sub:#8A8676;
-    --sub2:#6B6659; --green:#4A7C59; --orange:#C7511F; --beige:#F3F0E6; --carb:#C99A3E; --fat:#A2673E;
+    --sub2:#6B6659; --green:#4A7C59; --orange:#C7511F; --beige:#F3F0E6; --carb:#C99A3E; --fat:#A2673E; --blue:#2E6FA6; --blue-dark:#1F4E78;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--bg);font-family:'Inter',-apple-system,sans-serif;color:var(--ink);}
@@ -78,6 +78,7 @@
   .field input[type=number], .field input[type=text]{flex:1;height:40px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:15px;width:100%;}
   .field .unit{font-size:13px;color:var(--sub);width:32px;}
   .save-btn{width:100%;height:44px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;}
+  .save-btn-blue{width:100%;height:44px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;}
   .tip{background:var(--beige);border-radius:12px;padding:14px;margin-top:16px;font-size:12px;color:var(--sub);line-height:1.6;}
   .footnote{margin:24px 0;font-size:12px;color:#B0AB9C;text-align:center;}
 
@@ -87,14 +88,16 @@
   .tabbar i{font-size:22px;}
   .tabbar span{font-size:11px;font-weight:500;}
 
-  .fab{position:fixed;bottom:calc(78px + env(safe-area-inset-bottom));right:calc(50% - 200px);width:52px;height:52px;border-radius:50%;background:var(--green);border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(74,124,89,0.35);z-index:11;color:#fff;font-size:26px;}
+  .fab{position:fixed;bottom:calc(78px + env(safe-area-inset-bottom));right:calc(50% - 200px);width:auto;height:52px;border-radius:26px;background:var(--blue);border:none;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 18px 0 16px;box-shadow:0 4px 12px rgba(46,111,166,0.35);z-index:11;color:#fff;}
+  .fab i{font-size:24px;}
+  .fab .fab-label{font-size:13px;font-weight:600;letter-spacing:0.3px;}
   @media (max-width:460px){ .fab{ right:20px; } }
 
   .modal-overlay{position:fixed;inset:0;background:rgba(43,43,43,0.5);display:none;align-items:flex-end;justify-content:center;z-index:50;}
   .modal-overlay.show{display:flex;}
   .modal-sheet{background:var(--bg);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:20px 20px 28px;max-height:85vh;overflow-y:auto;}
   .handle{width:36px;height:4px;background:var(--line);border-radius:999px;margin:0 auto 16px;}
-  .capture-btn{width:100%;height:100px;border:1.5px dashed var(--green);border-radius:14px;background:#F0F4EC;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;color:var(--green);}
+  .capture-btn{width:100%;height:100px;border:1.5px dashed var(--blue);border-radius:14px;background:#EEF4F9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;color:var(--blue);}
   .capture-btn i{font-size:26px;}
   .capture-btn span{font-size:14px;font-weight:500;}
   .manual-btn{width:100%;height:48px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:14px;color:var(--sub2);font-weight:500;}
@@ -103,7 +106,7 @@
   .analyzing .msg{font-size:14px;color:var(--sub2);}
   .meal-picker{display:flex;gap:6px;}
   .meal-picker button{flex:1;padding:8px 0;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--sub2);font-size:12px;font-weight:500;}
-  .meal-picker button.active{background:var(--green);border-color:var(--green);color:#fff;}
+  .meal-picker button.active{background:var(--blue);border-color:var(--blue);color:#fff;}
   .num-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
   .num-grid label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px;}
   .num-grid input{width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:14px;}
@@ -234,7 +237,7 @@
     <div class="footnote">홈 화면에 추가하면 앱처럼 사용할 수 있어요<br>(공유 메뉴 → 홈 화면에 추가)</div>
   </div>
 
-  <button class="fab" id="fab-add" aria-label="식단 기록 추가"><i class="ti ti-plus"></i></button>
+  <button class="fab" id="fab-add" aria-label="신규 식단 추가"><i class="ti ti-plus"></i><span class="fab-label">NEW</span></button>
 
   <div class="tabbar">
     <button class="tab-btn active" data-tab="home"><i class="ti ti-home"></i><span>홈</span></button>
@@ -702,12 +705,16 @@ function openChooseModal(){
   modalBody.innerHTML = `
     <div class="title" style="font-size:18px;margin-bottom:16px;">식사 기록하기</div>
     <button class="capture-btn" id="btn-capture"><i class="ti ti-camera"></i><span>사진 찍고 AI로 칼로리 추정</span></button>
-    <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
+    <button class="capture-btn" id="btn-upload" style="margin-bottom:12px;background:#F4F1E9;border-style:solid;"><i class="ti ti-photo-up"></i><span>사진 파일 올리고 AI로 칼로리 추정</span></button>
+    <input type="file" id="upload-input" accept="image/*" style="display:none;">
     <button class="manual-btn" id="btn-manual">직접 입력하기</button>
   `;
   overlay.classList.add('show');
-  document.getElementById('btn-capture').addEventListener('click', ()=> document.getElementById('file-input').click());
-  document.getElementById('file-input').addEventListener('change', (e)=> handleFile(e.target.files[0]));
+  document.getElementById('btn-capture').addEventListener('click', ()=> document.getElementById('camera-input').click());
+  document.getElementById('camera-input').addEventListener('change', (e)=> handleFile(e.target.files[0]));
+  document.getElementById('btn-upload').addEventListener('click', ()=> document.getElementById('upload-input').click());
+  document.getElementById('upload-input').addEventListener('change', (e)=> handleFile(e.target.files[0]));
   document.getElementById('btn-manual').addEventListener('click', ()=> openManualModal(null));
 }
 
@@ -773,7 +780,7 @@ function openResultModal(result){
       <div><label>지방(g)</label><input type="number" id="r-fat" value="${Math.round(result.fat||0)}"></div>
     </div>
     <div class="err" id="r-err" style="display:none;"></div>
-    <button class="save-btn" id="r-save">기록 저장</button>
+    <button class="save-btn-blue" id="r-save">기록 저장</button>
   `;
   bindMealPicker();
   document.getElementById('r-save').addEventListener('click', ()=>{
@@ -804,7 +811,7 @@ function openManualModal(errMsg){
       <div><label>지방(g)</label><input type="number" id="m-fat"></div>
     </div>
     <div class="err" id="m-err" style="${errMsg?'':'display:none;'}">${errMsg||''}</div>
-    <button class="save-btn" id="m-save">기록 저장</button>
+    <button class="save-btn-blue" id="m-save">기록 저장</button>
   `;
   bindMealPicker();
   document.getElementById('m-save').addEventListener('click', ()=>{
