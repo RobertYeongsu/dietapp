@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dietapp-cache-v17';
+const CACHE_NAME = 'dietapp-cache-v18';
 const CORE_ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
