@@ -111,10 +111,11 @@
   .num-grid label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px;}
   .num-grid input{width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:14px;}
   .err{color:var(--orange);font-size:12px;margin-bottom:10px;}
-  .result-head{display:flex;gap:12px;margin-bottom:14px;}
-  .result-head img{width:64px;height:64px;object-fit:cover;border-radius:10px;}
+  .result-head{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;}
+  .result-head img{width:64px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0;}
   .result-head .rname{font-size:16px;font-weight:600;}
   .result-head .rmeta{font-size:12px;color:var(--sub);margin-top:2px;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -374,6 +375,39 @@ async function analyzeFood(base64Image, mediaType){
           "이 사진 속 음식을 분석해줘. 여러 음식이 보이면 하나로 합쳐서 한 끼 기준으로 추정해. " +
           "반드시 아래 JSON 형식으로만 답해. 다른 설명, 코드블록, 텍스트 없이 순수 JSON만 출력해.\n" +
           '{"name": "음식 이름(한글, 간결하게)", "calories": 숫자(kcal), "carbs": 숫자(g), "protein": 숫자(g), "fat": 숫자(g), "confidence": "high|medium|low", "note": "한 줄 설명(추정 근거, 20자 내외)"}'
+        }
+      ]
+    }]
+  };
+  const resp = await fetch(AI_PROXY_URL, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  });
+  if(!resp.ok){
+    const errText = await resp.text().catch(()=> '');
+    throw new Error('proxy error: ' + resp.status + ' ' + errText);
+  }
+  const data = await resp.json();
+  const textBlock = (data.content||[]).find(b=>b.type==='text');
+  if(!textBlock) throw new Error('no result');
+  const clean = textBlock.text.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+// 사용자가 이름을 수정했을 때, 그 이름 기준으로 칼로리/탄단지/구분(끼니)을 텍스트로 재분석
+async function reanalyzeByName(foodName){
+  const body = {
+    model: "claude-sonnet-4-6",
+    max_tokens: 1000,
+    messages: [{
+      role:"user",
+      content:[
+        {type:"text", text:
+          `"${foodName}" 이 음식의 칼로리와 영양성분을 추정해줘. 여러 음식이 나열되어 있으면 합쳐서 한 끼 기준으로 추정해. ` +
+          "또한 이 음식이 하루 중 언제 먹기 적합한지 구분도 판단해줘 (breakfast/lunch/dinner/snack 중 하나). " +
+          "반드시 아래 JSON 형식으로만 답해. 다른 설명, 코드블록, 텍스트 없이 순수 JSON만 출력해.\n" +
+          '{"name": "음식 이름(한글, 간결하게, 필요시 다듬어서)", "calories": 숫자(kcal), "carbs": 숫자(g), "protein": 숫자(g), "fat": 숫자(g), "meal": "breakfast|lunch|dinner|snack", "confidence": "high|medium|low", "note": "한 줄 설명(추정 근거, 20자 내외)"}'
         }
       ]
     }]
@@ -776,9 +810,13 @@ function openResultModal(result){
   modalBody.innerHTML = `
     <div class="result-head">
       ${currentPhoto ? `<img src="${currentPhoto}" alt="">` : ''}
-      <div>
-        <div class="rname">${escapeHtml(result.name||'음식')}</div>
-        <div class="rmeta">신뢰도: ${{high:'높음',medium:'보통',low:'낮음'}[result.confidence]||'보통'}${result.note? ' · '+escapeHtml(result.note):''}</div>
+      <div style="flex:1;min-width:0;">
+        <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px;">음식 이름 (수정 가능)</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="r-name" value="${escapeHtml(result.name||'음식')}" style="flex:1;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:14px;">
+          <button class="navbtn" id="r-reanalyze" style="width:38px;height:38px;flex-shrink:0;" aria-label="이름 기준 다시 측정"><i class="ti ti-refresh"></i></button>
+        </div>
+        <div class="rmeta" id="r-meta-text" style="margin-top:6px;">신뢰도: ${{high:'높음',medium:'보통',low:'낮음'}[result.confidence]||'보통'}${result.note? ' · '+escapeHtml(result.note):''}</div>
       </div>
     </div>
     ${mealPickerHtml()}
@@ -792,8 +830,44 @@ function openResultModal(result){
     <button class="save-btn-blue" id="r-save">기록 저장</button>
   `;
   bindMealPicker();
+
+  document.getElementById('r-reanalyze').addEventListener('click', async ()=>{
+    const nameInput = document.getElementById('r-name');
+    const newName = nameInput.value.trim();
+    const errEl = document.getElementById('r-err');
+    errEl.style.display = 'none';
+    if(!newName){ errEl.textContent = '음식 이름을 입력해주세요'; errEl.style.display = 'block'; return; }
+
+    const reBtn = document.getElementById('r-reanalyze');
+    const originalIcon = reBtn.innerHTML;
+    reBtn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i>';
+    reBtn.disabled = true;
+
+    try{
+      const updated = await reanalyzeByName(newName);
+      nameInput.value = updated.name || newName;
+      document.getElementById('r-cal').value = Math.round(updated.calories||0);
+      document.getElementById('r-carb').value = Math.round(updated.carbs||0);
+      document.getElementById('r-protein').value = Math.round(updated.protein||0);
+      document.getElementById('r-fat').value = Math.round(updated.fat||0);
+      document.getElementById('r-meta-text').textContent =
+        `신뢰도: ${{high:'높음',medium:'보통',low:'낮음'}[updated.confidence]||'보통'}${updated.note? ' · '+updated.note:''}`;
+      if(updated.meal && MEAL_LABEL[updated.meal]){
+        currentMeal = updated.meal;
+        document.querySelectorAll('#meal-picker button').forEach(b=> b.classList.toggle('active', b.dataset.meal===updated.meal));
+      }
+    }catch(err){
+      console.error('재분석 실패:', err);
+      errEl.textContent = '다시 측정에 실패했어요 (' + (err && err.message ? err.message : '알 수 없는 오류') + ')';
+      errEl.style.display = 'block';
+    }finally{
+      reBtn.innerHTML = originalIcon;
+      reBtn.disabled = false;
+    }
+  });
+
   document.getElementById('r-save').addEventListener('click', ()=>{
-    const name = result.name || '음식';
+    const name = document.getElementById('r-name').value.trim() || '음식';
     const cal = Number(document.getElementById('r-cal').value);
     if(!cal || cal<=0){ const e=document.getElementById('r-err'); e.textContent='칼로리를 입력해주세요'; e.style.display='block'; return; }
     saveEntry({
