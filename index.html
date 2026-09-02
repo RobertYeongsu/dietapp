@@ -30,7 +30,8 @@
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
   .title{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--ink);}
   .subtitle{font-size:13px;color:var(--sub);}
-  .navbtn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;color:var(--sub2);}
+  .navbtn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#F3F0E6;display:flex;align-items:center;justify-content:center;color:#000;}
+  .navbtn i{color:#000;font-weight:700;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;}
   .streak{display:flex;align-items:center;gap:6px;margin:8px 0 12px;font-size:12px;color:var(--sub);}
   .ring-wrap{position:relative;width:200px;height:200px;margin:0 auto;}
@@ -129,8 +130,8 @@
         <div class="subtitle" id="home-date-sub"></div>
       </div>
       <div style="display:flex;gap:6px;">
-        <button class="navbtn" id="btn-prev-day" aria-label="전날"><i class="ti ti-arrow-left" style="font-size:16px;"></i></button>
-        <button class="navbtn" id="btn-next-day" aria-label="다음날"><i class="ti ti-arrow-right" style="font-size:16px;"></i></button>
+        <button class="navbtn" id="btn-prev-day" aria-label="전날" style="font-size:18px;font-weight:700;">←</button>
+        <button class="navbtn" id="btn-next-day" aria-label="다음날" style="font-size:18px;font-weight:700;">→</button>
       </div>
     </div>
     <div class="streak" id="streak-row" style="display:none;"><i class="ti ti-flame" style="color:var(--orange);"></i><span id="streak-text"></span></div>
@@ -169,8 +170,8 @@
         <span style="font-size:13px;font-weight:500;" id="water-text">물 0/8잔</span>
       </div>
       <div style="display:flex;gap:6px;">
-        <button class="navbtn" style="width:28px;height:28px;" id="water-minus" aria-label="물 한 잔 빼기"><i class="ti ti-arrow-left" style="font-size:14px;"></i></button>
-        <button class="navbtn" style="width:28px;height:28px;" id="water-plus" aria-label="물 한 잔 추가"><i class="ti ti-arrow-right" style="font-size:14px;"></i></button>
+        <button class="navbtn" style="width:28px;height:28px;font-size:15px;font-weight:700;" id="water-minus" aria-label="물 한 잔 빼기">←</button>
+        <button class="navbtn" style="width:28px;height:28px;font-size:15px;font-weight:700;" id="water-plus" aria-label="물 한 잔 추가">→</button>
       </div>
     </div>
 
