@@ -1,0 +1,14 @@
+{
+  "name": "식단기록",
+  "short_name": "식단기록",
+  "description": "사진으로 칼로리를 기록하고 목표 대비 섭취량을 추적하는 식단 관리 앱",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FDFBF7",
+  "theme_color": "#4A7C59",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
