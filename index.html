@@ -225,6 +225,12 @@
       <div style="font-size:12px;color:var(--sub);margin-top:10px;" id="storage-info"></div>
     </div>
 
+    <div class="card" id="demo-cleanup-card" style="margin-top:16px;display:none;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">예시 기록 정리</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px;" id="demo-cleanup-desc"></div>
+      <button class="manual-btn" id="cleanup-demo-btn" style="width:100%;color:var(--orange);border-color:var(--orange);"><i class="ti ti-trash" style="margin-right:4px;"></i>예시 기록 전부 삭제</button>
+    </div>
+
     <div class="footnote">홈 화면에 추가하면 앱처럼 사용할 수 있어요<br>(공유 메뉴 → 홈 화면에 추가)</div>
   </div>
 
@@ -303,7 +309,7 @@ async function loadState(){
   let saved = await idbGet(STATE_KEY);
   if(!saved){
     const migrated = migrateFromLocalStorage();
-    saved = migrated || { entries: seedEntries(), goal:{calories:1800,carbs:220,protein:100,fat:55}, water:{} };
+    saved = migrated || { entries: [], goal:{calories:1800,carbs:220,protein:100,fat:55}, water:{} };
     await idbSet(STATE_KEY, saved);
   }
   return saved;
@@ -321,37 +327,6 @@ function yearKey(dateStr){ return dateStr.slice(0,4); }
 
 const MEAL_LABEL = {breakfast:'아침', lunch:'점심', dinner:'저녁', snack:'간식'};
 const MEAL_ICON = {breakfast:'ti-coffee', lunch:'ti-salad', dinner:'ti-tools-kitchen-2', snack:'ti-apple'};
-
-function seedEntries(){
-  const foods = [
-    {name:'현미밥과 제육볶음', cal:620, c:65, p:32, f:22, meal:'lunch'},
-    {name:'그릭요거트와 블루베리', cal:210, c:24, p:14, f:6, meal:'breakfast'},
-    {name:'닭가슴살 샐러드', cal:380, c:18, p:40, f:14, meal:'dinner'},
-    {name:'아메리카노', cal:10, c:1, p:0, f:0, meal:'snack'},
-    {name:'계란 2개와 토스트', cal:320, c:30, p:18, f:14, meal:'breakfast'},
-    {name:'된장찌개 정식', cal:540, c:60, p:28, f:16, meal:'lunch'},
-    {name:'연어 스테이크', cal:460, c:12, p:38, f:26, meal:'dinner'},
-    {name:'바나나', cal:105, c:27, p:1, f:0, meal:'snack'},
-  ];
-  const out = [];
-  for(let i=27;i>=0;i--){
-    const d = new Date(); d.setDate(d.getDate()-i);
-    const date = todayStr(d);
-    const count = 2 + Math.floor(Math.random()*3);
-    for(let j=0;j<count;j++){
-      const f = foods[Math.floor(Math.random()*foods.length)];
-      const jitter = 0.85 + Math.random()*0.3;
-      out.push({
-        id:uid(), date, time:`${String(7+j*4).padStart(2,'0')}:00`,
-        name:f.name, meal:f.meal,
-        calories:Math.round(f.cal*jitter), carbs:Math.round(f.c*jitter),
-        protein:Math.round(f.p*jitter), fat:Math.round(f.f*jitter),
-        photo:null, source:'demo'
-      });
-    }
-  }
-  return out;
-}
 
 let state = { entries: [], goal:{calories:1800,carbs:220,protein:100,fat:55}, water:{} };
 let selectedDate = todayStr();
@@ -600,7 +575,31 @@ function renderSettings(){
   const approxBytes = new Blob([JSON.stringify(state)]).size;
   const mb = (approxBytes / (1024*1024)).toFixed(1);
   document.getElementById('storage-info').textContent = `현재 저장된 기록: ${state.entries.length}건 · 약 ${mb}MB`;
+
+  const demoCount = state.entries.filter(e => e.source === 'demo').length;
+  const cleanupCard = document.getElementById('demo-cleanup-card');
+  if(demoCount > 0){
+    cleanupCard.style.display = 'block';
+    document.getElementById('demo-cleanup-desc').textContent = `처음 실행 시 자동으로 채워졌던 예시 기록이 ${demoCount}건 남아있어요. 직접 입력하거나 AI로 분석한 기록은 그대로 유지돼요.`;
+  } else {
+    cleanupCard.style.display = 'none';
+  }
 }
+
+async function cleanupDemoEntries(){
+  const before = state.entries.length;
+  state.entries = state.entries.filter(e => e.source !== 'demo');
+  const removed = before - state.entries.length;
+  await saveState();
+  renderSettings();
+  renderHome();
+  alert(`예시 기록 ${removed}건을 삭제했어요.`);
+}
+document.getElementById('cleanup-demo-btn').addEventListener('click', ()=>{
+  if(confirm('처음 실행 시 자동으로 채워졌던 예시 기록을 모두 삭제할까요?\n직접 입력하거나 사진으로 기록한 내용은 삭제되지 않아요.')){
+    cleanupDemoEntries();
+  }
+});
 
 function exportData(){
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
