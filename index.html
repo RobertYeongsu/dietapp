@@ -358,6 +358,10 @@ function compressImage(file, maxSize = 640, quality = 0.7){
 }
 
 /* ---------- AI 분석 ---------- */
+// 아래 주소를 Cloudflare Worker 배포 후 받은 본인 주소로 바꿔주세요.
+// 예: https://dietapp-proxy.본인계정명.workers.dev
+const AI_PROXY_URL = "https://dietapp-proxy.YOUR-SUBDOMAIN.workers.dev";
+
 async function analyzeFood(base64Image, mediaType){
   const body = {
     model: "claude-sonnet-4-6",
@@ -374,11 +378,15 @@ async function analyzeFood(base64Image, mediaType){
       ]
     }]
   };
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+  const resp = await fetch(AI_PROXY_URL, {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify(body)
   });
+  if(!resp.ok){
+    const errText = await resp.text().catch(()=> '');
+    throw new Error('proxy error: ' + resp.status + ' ' + errText);
+  }
   const data = await resp.json();
   const textBlock = (data.content||[]).find(b=>b.type==='text');
   if(!textBlock) throw new Error('no result');
@@ -739,8 +747,9 @@ async function handleFile(file){
     const result = await analyzeFood(base64, mediaType);
     openResultModal(result);
   }catch(err){
+    console.error('AI 분석 실패:', err);
     try{ currentPhoto = await compressImage(file); }catch(e){ currentPhoto = null; }
-    openManualModal('분석에 실패했어요. 직접 입력해주세요.');
+    openManualModal('분석에 실패했어요 (' + (err && err.message ? err.message : '알 수 없는 오류') + '). 직접 입력해주세요.');
   }finally{
     URL.revokeObjectURL(previewUrl);
   }
