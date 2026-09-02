@@ -379,7 +379,7 @@ const AI_PROXY_URL = "https://dietapp-proxy.lysu1911.workers.dev";
 
 async function analyzeFood(base64Image, mediaType){
   const body = {
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1000,
     messages: [{
       role:"user",
@@ -412,7 +412,7 @@ async function analyzeFood(base64Image, mediaType){
 // 사용자가 이름을 수정했을 때, 그 이름 기준으로 칼로리/탄단지/구분(끼니)을 텍스트로 재분석
 async function reanalyzeByName(foodName){
   const body = {
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1000,
     messages: [{
       role:"user",
