@@ -410,21 +410,32 @@ async function analyzeFood(base64Image, mediaType){
 }
 
 // 사용자가 이름을 수정했을 때, 그 이름 기준으로 칼로리/탄단지/구분(끼니)을 텍스트로 재분석
-async function reanalyzeByName(foodName){
+// photoBase64/photoMediaType이 있으면 사진도 함께 참고해서 실제 양을 재판단하고,
+// 없으면(사진 없이 저장된 기록 등) 이름만으로 일반적인 1인분 기준으로 추정한다.
+async function reanalyzeByName(foodName, photoBase64, photoMediaType){
+  const content = [];
+  if(photoBase64){
+    content.push({type:"image", source:{type:"base64", media_type: photoMediaType || 'image/jpeg', data: photoBase64}});
+    content.push({type:"text", text:
+      `이 사진 속 음식의 이름을 "${foodName}"로 교정했어. 사진에 보이는 실제 그릇 크기와 양을 참고해서 이 음식의 칼로리와 영양성분을 다시 추정해줘. ` +
+      "이름이 사진 내용과 다르더라도 사용자가 고친 이름을 우선해서 그 음식 기준으로 계산하되, 양(1인분/곱빼기 등 크기감)은 사진에 보이는 그대로 반영해줘. 여러 음식이 나열되어 있으면 합쳐서 한 끼 기준으로 추정해. " +
+      "또한 이 음식이 하루 중 언제 먹기 적합한지 구분도 판단해줘 (breakfast/lunch/dinner/snack 중 하나). " +
+      "반드시 아래 JSON 형식으로만 답해. 다른 설명, 코드블록, 텍스트 없이 순수 JSON만 출력해.\n" +
+      '{"name": "음식 이름(한글, 간결하게, 필요시 다듬어서)", "calories": 숫자(kcal), "carbs": 숫자(g), "protein": 숫자(g), "fat": 숫자(g), "meal": "breakfast|lunch|dinner|snack", "confidence": "high|medium|low", "note": "한 줄 설명(추정 근거, 20자 내외)"}'
+    });
+  } else {
+    content.push({type:"text", text:
+      `"${foodName}" 이 음식의 칼로리와 영양성분을 추정해줘. 여러 음식이 나열되어 있으면 합쳐서 한 끼 기준으로 추정해. ` +
+      "또한 이 음식이 하루 중 언제 먹기 적합한지 구분도 판단해줘 (breakfast/lunch/dinner/snack 중 하나). " +
+      "반드시 아래 JSON 형식으로만 답해. 다른 설명, 코드블록, 텍스트 없이 순수 JSON만 출력해.\n" +
+      '{"name": "음식 이름(한글, 간결하게, 필요시 다듬어서)", "calories": 숫자(kcal), "carbs": 숫자(g), "protein": 숫자(g), "fat": 숫자(g), "meal": "breakfast|lunch|dinner|snack", "confidence": "high|medium|low", "note": "한 줄 설명(추정 근거, 20자 내외)"}'
+    });
+  }
+
   const body = {
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1000,
-    messages: [{
-      role:"user",
-      content:[
-        {type:"text", text:
-          `"${foodName}" 이 음식의 칼로리와 영양성분을 추정해줘. 여러 음식이 나열되어 있으면 합쳐서 한 끼 기준으로 추정해. ` +
-          "또한 이 음식이 하루 중 언제 먹기 적합한지 구분도 판단해줘 (breakfast/lunch/dinner/snack 중 하나). " +
-          "반드시 아래 JSON 형식으로만 답해. 다른 설명, 코드블록, 텍스트 없이 순수 JSON만 출력해.\n" +
-          '{"name": "음식 이름(한글, 간결하게, 필요시 다듬어서)", "calories": 숫자(kcal), "carbs": 숫자(g), "protein": 숫자(g), "fat": 숫자(g), "meal": "breakfast|lunch|dinner|snack", "confidence": "high|medium|low", "note": "한 줄 설명(추정 근거, 20자 내외)"}'
-        }
-      ]
-    }]
+    messages: [{ role:"user", content }]
   };
   const resp = await fetch(AI_PROXY_URL, {
     method:"POST",
@@ -925,7 +936,12 @@ function openResultModal(result){
     reBtn.disabled = true;
 
     try{
-      const updated = await reanalyzeByName(newName);
+      let photoB64 = null, photoType = null;
+      if(currentPhoto && currentPhoto.startsWith('data:')){
+        const match = currentPhoto.match(/^data:([^;]+);base64,(.*)$/s);
+        if(match){ photoType = match[1]; photoB64 = match[2]; }
+      }
+      const updated = await reanalyzeByName(newName, photoB64, photoType);
       nameInput.value = updated.name || newName;
       document.getElementById('r-cal').value = Math.round(updated.calories||0);
       document.getElementById('r-carb').value = Math.round(updated.carbs||0);
