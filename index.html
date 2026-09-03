@@ -894,10 +894,37 @@ function closeModal(){ overlay.classList.remove('show'); modalBody.innerHTML='';
 
 document.getElementById('fab-add').addEventListener('click', openChooseModal);
 
-function openDetailModal(e, baselineOverride){
+function openDetailModal(e, baselineOverride, startInEditMode){
   const mealText = MEAL_LABEL[e.meal] || '';
   const baseline = baselineOverride || e;
   const originalValues = { name: baseline.name, calories: baseline.calories, carbs: baseline.carbs, protein: baseline.protein, fat: baseline.fat, photo: baseline.photo };
+  const isEditing = !!startInEditMode;
+
+  const infoViewHtml = `
+    <div class="title" style="font-size:19px;margin-bottom:4px;">${escapeHtml(e.name)}</div>
+    <div class="subtitle" style="margin-bottom:10px;">${mealText}${e.time ? ' · '+e.time : ''}</div>
+    <div class="stat-grid" style="margin-top:0;">
+      <div class="stat-box"><div class="lbl">칼로리</div><div class="val">${e.calories}</div><div class="unit">kcal</div></div>
+      <div class="stat-box"><div class="lbl">탄수화물</div><div class="val">${e.carbs}</div><div class="unit">g</div></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="lbl">단백질</div><div class="val">${e.protein}</div><div class="unit">g</div></div>
+      <div class="stat-box"><div class="lbl">지방</div><div class="val">${e.fat}</div><div class="unit">g</div></div>
+    </div>
+  `;
+
+  const infoEditHtml = `
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px;">음식 이름</label>
+    <input type="text" id="detail-name" value="${escapeHtml(e.name)}" style="width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:15px;font-weight:600;margin-bottom:4px;">
+    <div class="subtitle" style="margin-bottom:10px;">${mealText}${e.time ? ' · '+e.time : ''}</div>
+    <div class="num-grid-compact">
+      <div><label>칼로리(kcal)</label><input type="number" id="detail-cal" value="${e.calories}"></div>
+      <div><label>탄수화물(g)</label><input type="number" id="detail-carb" value="${e.carbs}"></div>
+      <div><label>단백질(g)</label><input type="number" id="detail-protein" value="${e.protein}"></div>
+      <div><label>지방(g)</label><input type="number" id="detail-fat" value="${e.fat}"></div>
+    </div>
+  `;
+
   modalBody.innerHTML = `
     <div style="text-align:center;">
       ${e.photo
@@ -918,25 +945,70 @@ function openDetailModal(e, baselineOverride){
     </div>` : ''}
     <input type="file" id="detail-photo-input" accept="image/*" style="display:none;">
 
-    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px;">음식 이름</label>
-    <input type="text" id="detail-name" value="${escapeHtml(e.name)}" style="width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:15px;font-weight:600;margin-bottom:4px;">
-    <div class="subtitle" style="margin-bottom:10px;">${mealText}${e.time ? ' · '+e.time : ''}</div>
+    <div id="detail-info-area">${isEditing ? infoEditHtml : infoViewHtml}</div>
 
-    <div class="num-grid-compact">
-      <div><label>칼로리(kcal)</label><input type="number" id="detail-cal" value="${e.calories}"></div>
-      <div><label>탄수화물(g)</label><input type="number" id="detail-carb" value="${e.carbs}"></div>
-      <div><label>단백질(g)</label><input type="number" id="detail-protein" value="${e.protein}"></div>
-      <div><label>지방(g)</label><input type="number" id="detail-fat" value="${e.fat}"></div>
-    </div>
     <div class="err" id="detail-photo-err" style="display:none;"></div>
-    <button class="save-btn-blue" id="detail-save-btn" disabled style="margin-top:6px;opacity:0.4;">변경사항 저장</button>
+    ${isEditing ? `<button class="save-btn-blue" id="detail-save-btn" disabled style="margin-top:6px;opacity:0.4;">변경사항 저장</button>` : ''}
+    ${!isEditing ? `
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;margin-bottom:8px;">
+      <label id="detail-edit-btn" style="cursor:pointer;font-size:12px;color:var(--blue);font-weight:600;display:flex;align-items:center;gap:4px;">
+        <i class="ti ti-edit" style="font-size:14px;"></i>내용 변경
+      </label>
+    </div>` : ''}
     <button class="manual-btn" id="detail-close-btn" style="width:100%;margin-top:8px;">닫기</button>
   `;
   overlay.classList.add('show');
   document.getElementById('detail-close-btn').addEventListener('click', closeModal);
 
+  let currentPhotoValue = e.photo; // 화면에 표시 중인 사진 값(사진 변경 미리보기 포함)으로 초기화
+
+  // 사진 변경 리스너는 읽기/편집 모드 공통으로 필요하므로 먼저 등록한다.
+  const photoInput = document.getElementById('detail-photo-input');
+  photoInput.addEventListener('change', async (ev)=>{
+    const file = ev.target.files[0];
+    if(!file) return;
+    const errEl = document.getElementById('detail-photo-err');
+    if(errEl) errEl.style.display = 'none';
+    try{
+      const compressed = await compressImage(file);
+      currentPhotoValue = compressed; // 아직 저장 전, 화면에만 우선 반영
+      if(isEditing){
+        // 편집 모드: 현재 입력창에 남아있는(아직 저장 안 된) 값들도 함께 유지해서 미리보기로 다시 연다.
+        const previewEntry = {
+          ...e,
+          name: document.getElementById('detail-name').value,
+          calories: Number(document.getElementById('detail-cal').value) || 0,
+          carbs: Number(document.getElementById('detail-carb').value) || 0,
+          protein: Number(document.getElementById('detail-protein').value) || 0,
+          fat: Number(document.getElementById('detail-fat').value) || 0,
+          photo: compressed
+        };
+        openDetailModal(previewEntry, baseline, true); // 편집 모드를 유지한 채로 사진만 갱신
+      } else {
+        // 읽기 모드: 사진 변경은 확인 없이 바로 저장한다 (다른 값은 그대로).
+        const entry = state.entries.find(x=>x.id===e.id);
+        if(entry){
+          entry.photo = compressed;
+          await saveState();
+        }
+        renderHome();
+        openDetailModal(entry || { ...e, photo: compressed });
+      }
+    }catch(err){
+      console.error('사진 변경 실패:', err);
+      if(errEl){ errEl.textContent = '사진을 변경하지 못했어요. 다시 시도해주세요.'; errEl.style.display = 'block'; }
+    }
+  });
+
+  if(!isEditing){
+    // 읽기 모드: "내용 변경" 버튼을 누르면 같은 데이터로 편집 모드를 다시 연다.
+    document.getElementById('detail-edit-btn').addEventListener('click', ()=>{
+      openDetailModal(e, baseline, true);
+    });
+    return; // 읽기 모드에서는 저장/검증 로직이 필요 없다.
+  }
+
   const saveBtn = document.getElementById('detail-save-btn');
-  let currentPhotoValue = originalValues.photo; // 사진 변경 시 이 값을 갱신해서 비교에 반영
 
   function checkForChanges(){
     const nameEl = document.getElementById('detail-name');
@@ -957,6 +1029,7 @@ function openDetailModal(e, baselineOverride){
   ['detail-name','detail-cal','detail-carb','detail-protein','detail-fat'].forEach(id=>{
     document.getElementById(id).addEventListener('input', checkForChanges);
   });
+  checkForChanges(); // 모달이 열리는 시점(사진 변경으로 인한 재오픈 포함) 기준으로 즉시 한 번 검사
 
   saveBtn.addEventListener('click', async ()=>{
     if(saveBtn.disabled) return;
@@ -966,7 +1039,9 @@ function openDetailModal(e, baselineOverride){
     const cal = Number(document.getElementById('detail-cal').value);
     if(!name){ errEl.textContent = '음식 이름을 입력해주세요'; errEl.style.display = 'block'; return; }
     if(!cal || cal <= 0){ errEl.textContent = '칼로리를 입력해주세요'; errEl.style.display = 'block'; return; }
-    if(!confirm('변경사항을 저장할까요?')) return;
+    if(!confirm('변경사항을 저장할까요?')){
+      return; // '아니오' 선택 시 저장하지 않지만, 편집 상태는 유지한다.
+    }
     const entry = state.entries.find(x=>x.id===e.id);
     if(entry){
       entry.name = name;
@@ -977,35 +1052,9 @@ function openDetailModal(e, baselineOverride){
       entry.photo = currentPhotoValue;
       await saveState();
     }
-    closeModal();
     renderHome();
-  });
-
-  const photoInput = document.getElementById('detail-photo-input');
-  photoInput.addEventListener('change', async (ev)=>{
-    const file = ev.target.files[0];
-    if(!file) return;
-    const errEl = document.getElementById('detail-photo-err');
-    errEl.style.display = 'none';
-    try{
-      const compressed = await compressImage(file);
-      currentPhotoValue = compressed; // 아직 저장 전, 화면에만 우선 반영
-      // 현재 입력창에 남아있는(아직 저장 안 된) 값들도 함께 유지해서 미리보기로 다시 연다.
-      const previewEntry = {
-        ...e,
-        name: document.getElementById('detail-name').value,
-        calories: Number(document.getElementById('detail-cal').value) || 0,
-        carbs: Number(document.getElementById('detail-carb').value) || 0,
-        protein: Number(document.getElementById('detail-protein').value) || 0,
-        fat: Number(document.getElementById('detail-fat').value) || 0,
-        photo: compressed
-      };
-      openDetailModal(previewEntry, baseline); // 원본 비교 기준(baseline)은 그대로 유지
-    }catch(err){
-      console.error('사진 변경 실패:', err);
-      errEl.textContent = '사진을 변경하지 못했어요. 다시 시도해주세요.';
-      errEl.style.display = 'block';
-    }
+    // 저장 완료(예 선택) 후에는 다시 읽기 전용 상세보기로 전환한다.
+    openDetailModal(entry || { ...e, name, calories: cal, photo: currentPhotoValue });
   });
 }
 
