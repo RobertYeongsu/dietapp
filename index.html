@@ -86,6 +86,12 @@
   .save-btn-blue{width:100%;height:44px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;}
   .tip{background:var(--beige);border-radius:12px;padding:14px;margin-top:16px;font-size:12px;color:var(--sub);line-height:1.6;}
   .footnote{margin:24px 0;font-size:12px;color:#B0AB9C;text-align:center;}
+  .switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch-slider{position:absolute;cursor:pointer;inset:0;background:#ECE7D9;border-radius:999px;transition:.2s;}
+  .switch-slider:before{content:"";position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+  .switch input:checked + .switch-slider{background:var(--blue);}
+  .switch input:checked + .switch-slider:before{transform:translateX(18px);}
 
   .tabbar{position:fixed;bottom:0;left:0;right:0;max-width:460px;margin:0 auto;background:#fff;border-top:1px solid var(--line);display:flex;padding:10px 0 calc(14px + env(safe-area-inset-bottom));z-index:10;}
   .tabbar button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B0AB9C;}
@@ -134,7 +140,6 @@
         <div class="subtitle" id="home-date-sub"></div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="navbtn" id="btn-select-mode" aria-label="선택 모드" style="width:auto;border-radius:16px;padding:0 10px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;"><span id="select-mode-label">선택(삭제)</span></button>
         <button class="navbtn" id="btn-prev-day" aria-label="전날" style="font-size:18px;font-weight:700;flex-shrink:0;">←</button>
         <button class="navbtn" id="btn-next-day" aria-label="다음날" style="font-size:18px;font-weight:700;flex-shrink:0;">→</button>
       </div>
@@ -180,7 +185,11 @@
       </div>
     </div>
 
-    <div id="meal-list" style="margin-top:22px;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <button class="navbtn" id="btn-select-mode" aria-label="선택 모드" style="width:auto;border-radius:16px;padding:0 12px;font-size:11px;font-weight:600;white-space:nowrap;"><span id="select-mode-label">선택(삭제)</span></button>
+    </div>
+
+    <div id="meal-list" style="margin-top:10px;"></div>
 
     <div id="bulk-delete-bar" style="display:none;position:fixed;bottom:calc(78px + env(safe-area-inset-bottom));left:0;right:0;max-width:460px;margin:0 auto;padding:0 20px;z-index:12;">
       <div style="background:var(--ink);border-radius:14px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
@@ -248,6 +257,19 @@
       <button class="manual-btn" id="cleanup-demo-btn" style="width:100%;color:var(--orange);border-color:var(--orange);"><i class="ti ti-trash" style="margin-right:4px;"></i>예시 기록 전부 삭제</button>
     </div>
 
+    <div class="card" style="margin-top:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">디버그 로그 표시</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:2px;">문제 발생 시 원인 확인용 로그를 화면에 표시해요</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="debug-log-toggle">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <div class="footnote">홈 화면에 추가하면 앱처럼 사용할 수 있어요<br>(공유 메뉴 → 홈 화면에 추가)</div>
   </div>
 
@@ -279,7 +301,7 @@
     </div>
     <div id="debug-log" style="padding:6px 10px;white-space:pre-wrap;word-break:break-all;"></div>
   </div>
-  <button id="debug-toggle" style="position:fixed;bottom:calc(78px + env(safe-area-inset-bottom) + 8px);left:8px;z-index:1000;background:#111;color:#0f0;border:1px solid #0f0;border-radius:8px;padding:4px 8px;font-size:10px;font-family:monospace;">LOG</button>
+  <button id="debug-toggle" style="display:none;position:fixed;bottom:calc(78px + env(safe-area-inset-bottom) + 8px);left:8px;z-index:1000;background:#111;color:#0f0;border:1px solid #0f0;border-radius:8px;padding:4px 8px;font-size:10px;font-family:monospace;">LOG</button>
 </div>
 
 <script>
@@ -367,8 +389,18 @@ let chartInstance = null;
 let selectMode = false;
 let selectedEntryIds = new Set();
 
-/* ---------- 임시 진단용 로그 (문제 해결 후 제거 가능) ---------- */
+/* ---------- 진단용 로그 (설정 탭에서 켜고 끌 수 있음) ---------- */
+const DEBUG_LOG_KEY = 'dietapp_debug_log_enabled';
+function isDebugLogEnabled(){
+  return localStorage.getItem(DEBUG_LOG_KEY) === '1';
+}
+function setDebugLogEnabled(enabled){
+  localStorage.setItem(DEBUG_LOG_KEY, enabled ? '1' : '0');
+  document.getElementById('debug-toggle').style.display = enabled ? 'block' : 'none';
+  if(!enabled) document.getElementById('debug-panel').style.display = 'none';
+}
 function dlog(msg){
+  if(!isDebugLogEnabled()) return;
   try{
     const el = document.getElementById('debug-log');
     const time = new Date().toTimeString().slice(0,8);
@@ -389,6 +421,12 @@ document.getElementById('debug-toggle').addEventListener('click', ()=>{
 document.getElementById('debug-clear').addEventListener('click', ()=>{
   document.getElementById('debug-log').textContent = '';
 });
+document.getElementById('debug-log-toggle').addEventListener('change', (e)=>{
+  setDebugLogEnabled(e.target.checked);
+});
+// 초기 상태 반영: 설정에 따라 LOG 버튼 노출 여부 결정 (기본값은 꺼짐)
+setDebugLogEnabled(isDebugLogEnabled());
+document.getElementById('debug-log-toggle').checked = isDebugLogEnabled();
 dlog(`앱 시작. UA: ${navigator.userAgent}`);
 
 // 사진을 작은 크기(최대 640px, jpeg 압축)로 줄여서 base64로 반환 — 용량을 크게 줄여 영구 저장 가능하게 함
