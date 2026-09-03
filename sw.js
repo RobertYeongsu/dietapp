@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dietapp-cache-v26';
+const CACHE_NAME = 'dietapp-cache-v28';
 // index.html은 캐시 대상에서 제외 - 항상 최신 코드를 받아오도록 하여
 // PWA(특히 Opera standalone 모드)에서 카메라/파일 선택 기능이 캐시된 옛 코드로 인해
 // 오작동하는 문제를 방지한다.

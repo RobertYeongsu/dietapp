@@ -968,12 +968,14 @@ function openResultModal(result){
       ${currentPhoto ? `<img src="${currentPhoto}" alt="">` : ''}
       <div style="flex:1;min-width:0;">
         <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px;">음식 이름 (수정 가능)</label>
-        <div style="display:flex;gap:6px;">
-          <input type="text" id="r-name" value="${escapeHtml(originalName)}" style="flex:1;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:14px;">
-          <button class="navbtn" id="r-reanalyze" disabled style="width:38px;height:38px;flex-shrink:0;font-size:16px;font-weight:700;opacity:0.4;" aria-label="이름 기준 다시 측정">→|</button>
-        </div>
+        <input type="text" id="r-name" value="${escapeHtml(originalName)}" style="width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:14px;">
         <div class="rmeta" id="r-meta-text" style="margin-top:6px;">신뢰도: ${{high:'높음',medium:'보통',low:'낮음'}[result.confidence]||'보통'}${result.note? ' · '+escapeHtml(result.note):''}</div>
       </div>
+    </div>
+    <div style="display:flex;justify-content:center;margin:10px 0 14px;">
+      <button id="r-reanalyze" disabled style="width:50%;height:36px;border-radius:10px;border:1px solid var(--blue);background:#EEF4F9;color:var(--blue);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;opacity:0.4;">
+        <span>새로고침(AI 분석)</span><span id="r-reanalyze-icon" style="font-size:15px;">↻</span>
+      </button>
     </div>
     ${mealPickerHtml()}
     <div class="num-grid">
@@ -983,30 +985,57 @@ function openResultModal(result){
       <div><label>지방(g)</label><input type="number" id="r-fat" value="${Math.round(result.fat||0)}"></div>
     </div>
     <div class="err" id="r-err" style="display:none;"></div>
-    <button class="save-btn-blue" id="r-save">기록 저장</button>
+    <button class="save-btn-blue" id="r-save" disabled style="opacity:0.4;">기록 저장 (새로고침을 눌러 확인해주세요)</button>
   `;
   bindMealPicker();
 
   let baselineName = originalName; // "다시 측정" 성공 시마다 이 기준값을 갱신
+  let hasReanalyzedSinceEdit = true; // 최초 AI 분석 결과 그대로일 때는 저장 가능하도록 true로 시작
+  let isReanalyzing = false; // 새로고침 요청이 진행 중인 동안에는 중복 클릭/입력에 의한 버튼 재활성화를 막는다
   const nameInput = document.getElementById('r-name');
   const reBtn = document.getElementById('r-reanalyze');
+  const saveBtn = document.getElementById('r-save');
+
+  function updateSaveButtonState(){
+    const ready = hasReanalyzedSinceEdit;
+    saveBtn.disabled = !ready;
+    saveBtn.style.opacity = ready ? '1' : '0.4';
+    saveBtn.textContent = ready ? '기록 저장' : '기록 저장 (새로고침을 눌러 확인해주세요)';
+  }
 
   function updateReanalyzeButtonState(){
+    if(isReanalyzing){
+      // 결과를 받는 중에는 이름을 아무리 수정해도 버튼을 다시 켜지 않는다.
+      reBtn.disabled = true;
+      reBtn.style.opacity = '0.4';
+      return;
+    }
     const changed = nameInput.value.trim() !== baselineName.trim() && nameInput.value.trim() !== '';
     reBtn.disabled = !changed;
     reBtn.style.opacity = changed ? '1' : '0.4';
+    if(changed){
+      hasReanalyzedSinceEdit = false; // 이름을 바꾼 뒤에는 다시 새로고침을 눌러야 저장 가능
+      updateSaveButtonState();
+    }
   }
   nameInput.addEventListener('input', updateReanalyzeButtonState);
+  updateSaveButtonState();
 
   reBtn.addEventListener('click', async ()=>{
+    if(isReanalyzing) return; // 이미 요청이 진행 중이면 추가 클릭 무시
     const newName = nameInput.value.trim();
     const errEl = document.getElementById('r-err');
     errEl.style.display = 'none';
     if(!newName){ errEl.textContent = '음식 이름을 입력해주세요'; errEl.style.display = 'block'; return; }
 
-    const originalLabel = reBtn.innerHTML;
-    reBtn.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite;">↻</span>';
+    isReanalyzing = true;
+    const iconEl = document.getElementById('r-reanalyze-icon');
+    const originalIcon = iconEl.textContent;
+    iconEl.style.display = 'inline-block';
+    iconEl.style.animation = 'spin 1s linear infinite';
     reBtn.disabled = true;
+    reBtn.style.opacity = '0.4';
+    nameInput.readOnly = true; // 결과를 받는 동안에는 이름 수정 자체를 막아 상태 꼬임을 방지
 
     try{
       let photoB64 = null, photoType = null;
@@ -1027,17 +1056,23 @@ function openResultModal(result){
         currentMeal = updated.meal;
         document.querySelectorAll('#meal-picker button').forEach(b=> b.classList.toggle('active', b.dataset.meal===updated.meal));
       }
+      hasReanalyzedSinceEdit = true; // 새로고침 완료 -> 저장 가능
     }catch(err){
       console.error('재분석 실패:', err);
       errEl.textContent = '다시 측정에 실패했어요 (' + (err && err.message ? err.message : '알 수 없는 오류') + ')';
       errEl.style.display = 'block';
     }finally{
-      reBtn.innerHTML = originalLabel;
+      isReanalyzing = false;
+      nameInput.readOnly = false;
+      iconEl.style.animation = 'none';
+      iconEl.textContent = originalIcon;
       updateReanalyzeButtonState(); // 검토 완료 후 이름이 기준값과 같아졌으므로 자동으로 다시 비활성화됨
+      updateSaveButtonState();
     }
   });
 
   document.getElementById('r-save').addEventListener('click', ()=>{
+    if(saveBtn.disabled) return;
     const name = document.getElementById('r-name').value.trim() || '음식';
     const cal = Number(document.getElementById('r-cal').value);
     if(!cal || cal<=0){ const e=document.getElementById('r-err'); e.textContent='칼로리를 입력해주세요'; e.style.display='block'; return; }
