@@ -918,6 +918,7 @@ function openDetailModal(e){
 
 function openChooseModal(){
   dlog('식사 기록 모달 열림');
+  currentMeal = guessMealByCurrentTime(); // 모달을 여는 시점 기준으로 끼니 구분을 다시 판단
   modalBody.innerHTML = `
     <div class="title" style="font-size:18px;margin-bottom:16px;">식사 기록하기</div>
     <label class="capture-btn" for="camera-input-fixed" id="label-capture"><i class="ti ti-camera"></i><span>사진 찍고 AI로 칼로리 추정</span></label>
@@ -947,7 +948,15 @@ document.getElementById('camera-input-fixed').addEventListener('click', function
 document.getElementById('upload-input-fixed').addEventListener('click', function(){ dlog('업로드 input 자체 click 이벤트 발생'); this.value = ''; });
 document.getElementById('fab-add').addEventListener('click', ()=> dlog('NEW(+) 버튼 클릭됨'));
 
-let currentMeal = 'lunch';
+// 현재 시각을 기준으로 아침/점심/저녁/간식을 자동 판단
+function guessMealByCurrentTime(){
+  const hour = new Date().getHours();
+  if(hour >= 5 && hour < 11) return 'breakfast';
+  if(hour >= 11 && hour < 17) return 'lunch';
+  if(hour >= 17 && hour < 21) return 'dinner';
+  return 'snack';
+}
+let currentMeal = guessMealByCurrentTime();
 let currentPhoto = null;
 
 async function handleFile(file){
@@ -1168,7 +1177,7 @@ async function saveEntry(data){
   await saveState();
   closeModal();
   currentPhoto = null;
-  currentMeal = 'lunch';
+  currentMeal = guessMealByCurrentTime();
   renderHome();
 }
 
