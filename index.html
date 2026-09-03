@@ -106,7 +106,7 @@
 
   .modal-overlay{position:fixed;inset:0;background:rgba(43,43,43,0.5);display:none;align-items:flex-end;justify-content:center;z-index:50;}
   .modal-overlay.show{display:flex;}
-  .modal-sheet{background:var(--bg);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:20px 20px 28px;max-height:85vh;overflow-y:auto;}
+  .modal-sheet{background:var(--bg);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:20px 20px 28px;max-height:94vh;overflow-y:auto;}
   .handle{width:36px;height:4px;background:var(--line);border-radius:999px;margin:0 auto 16px;}
   .capture-btn{width:100%;height:100px;border:1.5px dashed var(--blue);border-radius:14px;background:#EEF4F9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;color:var(--blue);cursor:pointer;-webkit-tap-highlight-color:transparent;}
   .capture-btn i{font-size:26px;}
@@ -121,6 +121,9 @@
   .num-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
   .num-grid label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px;}
   .num-grid input{width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:14px;}
+  .num-grid-compact{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0;}
+  .num-grid-compact label{font-size:11px;color:var(--sub);display:block;margin-bottom:2px;}
+  .num-grid-compact input{width:100%;height:30px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font-size:13px;}
   .err{color:var(--orange);font-size:12px;margin-bottom:10px;}
   .result-head{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;}
   .result-head img{width:64px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0;}
@@ -896,24 +899,81 @@ function openDetailModal(e){
   modalBody.innerHTML = `
     <div style="text-align:center;">
       ${e.photo
-        ? `<img src="${e.photo}" alt="" style="width:100%;max-height:280px;object-fit:cover;border-radius:14px;margin-bottom:16px;">`
-        : `<div style="width:100%;height:180px;border-radius:14px;background:#E8E2D4;display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ti ti-tools-kitchen-2" style="font-size:40px;color:var(--sub);"></i></div>`
+        ? `<img src="${e.photo}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:6px;">`
+        : `<label for="detail-photo-input" style="cursor:pointer;width:100%;height:140px;border-radius:14px;background:#E8E2D4;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:6px;gap:6px;">
+             <div style="width:40px;height:40px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;">
+               <i class="ti ti-plus" style="font-size:22px;color:var(--blue);"></i>
+             </div>
+             <span style="font-size:12px;color:var(--sub);">사진 추가하기</span>
+           </label>`
       }
     </div>
-    <div class="title" style="font-size:19px;margin-bottom:4px;">${escapeHtml(e.name)}</div>
-    <div class="subtitle" style="margin-bottom:18px;">${mealText}${e.time ? ' · '+e.time : ''}</div>
-    <div class="stat-grid" style="margin-top:0;">
-      <div class="stat-box"><div class="lbl">칼로리</div><div class="val">${e.calories}</div><div class="unit">kcal</div></div>
-      <div class="stat-box"><div class="lbl">탄수화물</div><div class="val">${e.carbs}</div><div class="unit">g</div></div>
+    ${e.photo ? `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+      <label for="detail-photo-input" style="cursor:pointer;font-size:12px;color:var(--blue);font-weight:600;display:flex;align-items:center;gap:4px;">
+        <i class="ti ti-photo-edit" style="font-size:14px;"></i>사진 변경
+      </label>
+    </div>` : ''}
+    <input type="file" id="detail-photo-input" accept="image/*" style="display:none;">
+
+    <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px;">음식 이름</label>
+    <input type="text" id="detail-name" value="${escapeHtml(e.name)}" style="width:100%;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-size:15px;font-weight:600;margin-bottom:4px;">
+    <div class="subtitle" style="margin-bottom:10px;">${mealText}${e.time ? ' · '+e.time : ''}</div>
+
+    <div class="num-grid-compact">
+      <div><label>칼로리(kcal)</label><input type="number" id="detail-cal" value="${e.calories}"></div>
+      <div><label>탄수화물(g)</label><input type="number" id="detail-carb" value="${e.carbs}"></div>
+      <div><label>단백질(g)</label><input type="number" id="detail-protein" value="${e.protein}"></div>
+      <div><label>지방(g)</label><input type="number" id="detail-fat" value="${e.fat}"></div>
     </div>
-    <div class="stat-grid">
-      <div class="stat-box"><div class="lbl">단백질</div><div class="val">${e.protein}</div><div class="unit">g</div></div>
-      <div class="stat-box"><div class="lbl">지방</div><div class="val">${e.fat}</div><div class="unit">g</div></div>
-    </div>
-    <button class="manual-btn" id="detail-close-btn" style="width:100%;margin-top:18px;">닫기</button>
+    <div class="err" id="detail-photo-err" style="display:none;"></div>
+    <button class="save-btn-blue" id="detail-save-btn" style="margin-top:6px;">변경사항 저장</button>
+    <button class="manual-btn" id="detail-close-btn" style="width:100%;margin-top:8px;">닫기</button>
   `;
   overlay.classList.add('show');
   document.getElementById('detail-close-btn').addEventListener('click', closeModal);
+
+  document.getElementById('detail-save-btn').addEventListener('click', async ()=>{
+    const errEl = document.getElementById('detail-photo-err');
+    errEl.style.display = 'none';
+    const name = document.getElementById('detail-name').value.trim();
+    const cal = Number(document.getElementById('detail-cal').value);
+    if(!name){ errEl.textContent = '음식 이름을 입력해주세요'; errEl.style.display = 'block'; return; }
+    if(!cal || cal <= 0){ errEl.textContent = '칼로리를 입력해주세요'; errEl.style.display = 'block'; return; }
+    const entry = state.entries.find(x=>x.id===e.id);
+    if(entry){
+      entry.name = name;
+      entry.calories = cal;
+      entry.carbs = Number(document.getElementById('detail-carb').value) || 0;
+      entry.protein = Number(document.getElementById('detail-protein').value) || 0;
+      entry.fat = Number(document.getElementById('detail-fat').value) || 0;
+      await saveState();
+    }
+    closeModal();
+    renderHome();
+  });
+
+  const photoInput = document.getElementById('detail-photo-input');
+  photoInput.addEventListener('change', async (ev)=>{
+    const file = ev.target.files[0];
+    if(!file) return;
+    const errEl = document.getElementById('detail-photo-err');
+    errEl.style.display = 'none';
+    try{
+      const compressed = await compressImage(file);
+      const entry = state.entries.find(x=>x.id===e.id);
+      if(entry){
+        entry.photo = compressed;
+        await saveState();
+      }
+      openDetailModal(entry || e); // 사진이 반영된 최신 상태로 다시 열기
+      renderHome(); // 목록의 썸네일도 갱신
+    }catch(err){
+      console.error('사진 변경 실패:', err);
+      errEl.textContent = '사진을 변경하지 못했어요. 다시 시도해주세요.';
+      errEl.style.display = 'block';
+    }
+  });
 }
 
 function openChooseModal(){
